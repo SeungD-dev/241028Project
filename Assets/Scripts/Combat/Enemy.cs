@@ -7,6 +7,12 @@ public class Enemy : MonoBehaviour, IPooledObject
     [SerializeField] private float hitFlashDuration = 0.1f;
     [SerializeField] private Color hitColor = Color.red;
 
+    [Header("Bounce Effect")]
+    [SerializeField] private float bounceSpeed = 8f;
+    [SerializeField] private float bounceAmount = 0.2f;
+    private Vector3 originalScale;
+    private float bounceTime;
+
     [SerializeField] private EnemyData enemyData;
     private float currentHealth;
     private float calculatedMaxHealth;
@@ -28,10 +34,32 @@ public class Enemy : MonoBehaviour, IPooledObject
         {
             originalColor = spriteRenderer.color;
         }
+
+        originalScale = transform.localScale;
     }
     public void Initialize(Transform target)
     {
         targetTransform = target;
+    }
+
+    public void UpdateBounceEffect()
+    {
+        if (!gameObject.activeSelf) return;
+
+        bounceTime += Time.deltaTime * bounceSpeed;
+
+        float bounce = Mathf.Abs(Mathf.Sin(bounceTime)) * bounceAmount;
+
+        transform.localScale = new Vector3(
+            originalScale.x,
+            originalScale.y + bounce,
+            originalScale.z);
+    }
+
+    public void ResetBounceEffect()
+    {
+        transform.localScale = originalScale;
+        bounceTime = 0f;
     }
 
 
@@ -71,6 +99,8 @@ public class Enemy : MonoBehaviour, IPooledObject
             spriteRenderer.color = originalColor;
         }
         isFlashing = false;
+
+        ResetBounceEffect();
     }
 
     private void InitializeStats()
@@ -94,6 +124,14 @@ public class Enemy : MonoBehaviour, IPooledObject
         if (!gameObject.activeSelf) return;
 
         currentHealth -= damage;
+
+        Color textColor = Color.white;
+        string damageText = damage.ToString("F0");
+
+        if(FloatingTextManager.Instance != null && FloatingTextManager.Instance.isFloatingTextEnabled == true)
+        {
+            FloatingTextManager.Instance.ShowFloatingText(damageText, transform.position, textColor);
+        }
 
         PlayHitEffect();
 
@@ -190,6 +228,8 @@ public class Enemy : MonoBehaviour, IPooledObject
         }
 
         isFlashing = false;
+
+        ResetBounceEffect();
     }
 
 

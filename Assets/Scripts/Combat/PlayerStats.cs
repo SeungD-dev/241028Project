@@ -136,6 +136,17 @@ public class PlayerStats : MonoBehaviour
         }
     }
 
+    public bool SpendCoins(int amount)
+    {
+        if (coinCount >= amount)
+        {
+            coinCount -= amount;
+            OnCoinChanged?.Invoke(coinCount);
+            return true;
+        }
+        return false;
+    }
+
     public void Heal(float amount)
     {
         float oldHealth = currentHealth;

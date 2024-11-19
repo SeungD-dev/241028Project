@@ -1,5 +1,4 @@
 using TMPro;
-using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -12,11 +11,18 @@ public class WeaponOptionUI : MonoBehaviour
     [SerializeField] private TextMeshProUGUI descriptionText;
     [SerializeField] private Image weaponImage;
     [SerializeField] private TextMeshProUGUI weaponLevelText;
-    [SerializeField] private Button myPurchaseButton;    // 각 WeaponOption의 구매 버튼
-    [SerializeField] private Button mySellButton;        // 각 WeaponOption의 판매 버튼
+    [SerializeField] private Button myPurchaseButton;
+    [SerializeField] private TextMeshProUGUI priceText; // 가격 텍스트 추가
+    [SerializeField] private Button mySellButton;
 
     private WeaponData weaponData;
     private ShopController shopUI;
+    private PlayerStats playerStats;
+
+    private void Start()
+    {
+        playerStats = GameManager.Instance.PlayerStats;
+    }
 
     public void Initialize(WeaponData weapon, ShopController shop)
     {
@@ -24,6 +30,7 @@ public class WeaponOptionUI : MonoBehaviour
         shopUI = shop;
         SetupUI();
         SetupButtons();
+        UpdatePurchaseButtonState();
     }
 
     private void SetupUI()
@@ -36,20 +43,21 @@ public class WeaponOptionUI : MonoBehaviour
         dpsText.text = $"DPS: {weaponData.weaponDamage}";
         weaponLevelText.text = $"Lv.{weaponData.weaponLevel}";
 
+        // 가격이 0이면 "FREE" 표시
+        priceText.text = weaponData.price == 0 ? "FREE" : $"{weaponData.price} Coins";
+
         Color rarityColor = GetRarityColor(weaponData.rarity);
         rarityBackgroundImage.color = new Color(rarityColor.r, rarityColor.g, rarityColor.b, 0.3f);
     }
 
     private void SetupButtons()
     {
-        // 각 WeaponOption의 구매 버튼에 리스너 추가
         if (myPurchaseButton != null)
         {
             myPurchaseButton.onClick.RemoveAllListeners();
             myPurchaseButton.onClick.AddListener(OnPurchaseClicked);
         }
 
-        // 각 WeaponOption의 판매 버튼에 리스너 추가
         if (mySellButton != null)
         {
             mySellButton.onClick.RemoveAllListeners();
@@ -57,12 +65,32 @@ public class WeaponOptionUI : MonoBehaviour
         }
     }
 
+    private void UpdatePurchaseButtonState()
+    {
+        if (myPurchaseButton != null && playerStats != null && weaponData != null)
+        {
+            // 무료 아이템이거나 구매 가능한 경우 버튼 활성화
+            bool canAfford = weaponData.price == 0 || playerStats.CoinCount >= weaponData.price;
+            myPurchaseButton.interactable = canAfford;
+
+            Color buttonColor = canAfford ? Color.white : Color.gray;
+            myPurchaseButton.GetComponent<Image>().color = buttonColor;
+        }
+    }
+
     private void OnPurchaseClicked()
     {
-        if (weaponData != null && shopUI != null)
+        if (weaponData != null && shopUI != null && playerStats != null)
         {
-            Debug.Log($"Purchasing weapon: {weaponData.weaponName}");
-            shopUI.PurchaseWeapon(weaponData);
+            // 무료 아이템이거나 충분한 코인이 있는 경우에만 구매 가능
+            if (weaponData.price == 0 || playerStats.CoinCount >= weaponData.price)
+            {
+                if (weaponData.price > 0)
+                {
+                    playerStats.SpendCoins(weaponData.price);
+                }
+                shopUI.PurchaseWeapon(weaponData);
+            }
         }
     }
 
@@ -73,6 +101,27 @@ public class WeaponOptionUI : MonoBehaviour
             Debug.Log($"Selling weapon: {weaponData.weaponName}");
             shopUI.SellWeapon(weaponData);
         }
+    }
+
+    private void OnEnable()
+    {
+        if (playerStats != null)
+        {
+            playerStats.OnCoinChanged += OnCoinCountChanged;
+        }
+    }
+
+    private void OnDisable()
+    {
+        if (playerStats != null)
+        {
+            playerStats.OnCoinChanged -= OnCoinCountChanged;
+        }
+    }
+
+    private void OnCoinCountChanged(int newCoinCount)
+    {
+        UpdatePurchaseButtonState();
     }
 
     private Color GetRarityColor(WeaponRarity rarity)
